@@ -68,6 +68,7 @@ export function Home() {
   const [selectedDomain, setSelectedDomain] = useState<string>(
     config.emailDomain[0],
   ); // feat: 新增状态，用于存储当前选中的域名
+  const [customLocalPart, setCustomLocalPart] = useState("");
   const [showEmailModal, setShowEmailModal] = useState(false); // feat: 新增状态，用于控制邮件详情模态框的显示
   const [showPromoModal, setShowPromoModal] = useState(() => {
     // 如果未启用推广，不弹出
@@ -236,6 +237,44 @@ export function Home() {
     // }, [emails, address, hasReceivedEmail]); // 依赖项包含 emails, address 和 hasReceivedEmail 以响应所有相关变化
     // feat: 添加 expiryTimestamp 到依赖项
   }, [emails, address, hasReceivedEmail, expiryTimestamp]);
+
+  const handleOpenCustomAddress = () => {
+    const normalizedInput = customLocalPart.trim().toLowerCase();
+    let localPart = normalizedInput;
+
+    if (normalizedInput.includes("@")) {
+      const parts = normalizedInput.split("@");
+      if (parts.length !== 2 || parts[1] !== selectedDomain) {
+        toast.error(t("Invalid custom email address"));
+        return;
+      }
+      localPart = parts[0];
+    }
+
+    const isValid =
+      localPart.length <= 64 &&
+      /^[a-z0-9](?:[a-z0-9._+-]{0,62}[a-z0-9])?$/.test(localPart) &&
+      !localPart.includes("..");
+
+    if (!isValid) {
+      toast.error(t("Invalid custom email address"));
+      return;
+    }
+
+    const mailbox = `${localPart}@${selectedDomain}`;
+    const expires = Date.now() + 24 * 60 * 60 * 1000;
+
+    Cookies.set("userMailbox", mailbox, { expires: 1 });
+    Cookies.set("emailExpiry", expires.toString(), { expires: 1 });
+    Cookies.remove("mailboxToken");
+    mailboxMetaSignatureRef.current = null;
+    setAddress(mailbox);
+    setMailboxToken("");
+    setExpiryTimestamp(expires);
+    setHasReceivedEmail(false);
+    setSelectedEmail(null);
+    toast.success(t("Mailbox opened"));
+  };
 
   // 创建新邮箱地址的处理函数
   const handleCreateAddress = async () => {
@@ -599,10 +638,51 @@ export function Home() {
                 </div>
               </div>
             )}
+            <div className="mb-4">
+              <label
+                htmlFor="custom-mailbox"
+                className="mb-3 block font-semibold"
+              >
+                {t("Custom email address")}
+              </label>
+              <div className="flex h-11 min-w-0 items-center overflow-hidden rounded-md border border-cyan-50/20 bg-white/10 focus-within:border-cyan-500">
+                <input
+                  id="custom-mailbox"
+                  type="text"
+                  value={customLocalPart}
+                  onChange={(event) => setCustomLocalPart(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleOpenCustomAddress();
+                  }}
+                  maxLength={128}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={t("Enter email name")}
+                  className="h-full min-w-0 flex-1 border-0 bg-transparent px-3 text-white outline-none placeholder:text-zinc-500"
+                />
+                <span className="max-w-[45%] shrink-0 truncate border-l border-cyan-50/20 px-3 text-sm text-zinc-300">
+                  @{selectedDomain}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenCustomAddress}
+              disabled={!customLocalPart.trim()}
+              className="w-full rounded-md bg-cyan-600 py-2.5 hover:opacity-90 disabled:cursor-not-allowed disabled:bg-zinc-500"
+            >
+              {t("Open inbox")}
+            </button>
+            <div className="my-3 flex items-center gap-3 text-xs text-zinc-500">
+              <span className="h-px flex-1 bg-white/10" />
+              <span>{t("or")}</span>
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
             <button
               onClick={handleCreateAddress}
               disabled={config.turnstileEnabled && !turnstileToken}
-              className="py-2.5 rounded-md w-full bg-cyan-600 hover:opacity-90 disabled:cursor-not-allowed disabled:bg-zinc-500">
+              className="w-full rounded-md border border-cyan-500/60 bg-transparent py-2.5 text-cyan-300 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:border-zinc-600 disabled:text-zinc-500"
+            >
               {t("Create temporary email")}
             </button>
             <p
