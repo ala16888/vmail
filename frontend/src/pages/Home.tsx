@@ -421,6 +421,13 @@ export function Home() {
     return null;
   }, [address, config.cookiesSecret]);
 
+  const pickupAuthCode = getPassword();
+  const pickupUrl =
+    address && pickupAuthCode && typeof window !== "undefined"
+      ? `${window.location.origin}/latest?email=${encodeURIComponent(address)}&auth_code=${encodeURIComponent(pickupAuthCode)}`
+      : null;
+  const pickupPair = pickupUrl ? `${address}----${pickupUrl}` : null;
+
   // 新增：处理邮件选择
   const handleSelectEmail = (email: Email) => {
     setSelectedEmail(email);
@@ -596,6 +603,22 @@ export function Home() {
               <span className="truncate">{address}</span>
               <CopyButton text={address} className="p-1 rounded-md ml-auto" />
             </div>
+            {pickupPair && (
+              <div className="mt-4">
+                <div className="mb-2 text-sm font-semibold">
+                  {t("Email and pickup URL")}
+                </div>
+                <div className="flex h-12 min-w-0 items-center rounded-md border border-cyan-50/20 bg-white/10 px-3 text-zinc-100">
+                  <span className="min-w-0 flex-1 truncate" title={pickupPair}>
+                    {pickupPair}
+                  </span>
+                  <CopyButton
+                    text={pickupPair}
+                    className="ml-2 shrink-0 rounded-md p-1"
+                  />
+                </div>
+              </div>
+            )}
             {/* 修改：将 onExtend 更改为 onReset 并传递 handleResetExpiry */}
             {expiryTimestamp && (
               <CountdownTimer

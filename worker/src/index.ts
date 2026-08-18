@@ -13,6 +13,7 @@ import { decrypt } from './utils';
 // 导入 v1 API
 import v1Api from './api/v1';
 import { isOpenApiEnabled, requireOpenApi } from './openapi';
+import { authorizePickup } from './pickup';
 import {
   buildCloudflareMimeMessage,
   buildMailChannelsPayload,
@@ -95,6 +96,9 @@ function isSiteUnlocked(request: Request, env: Env): boolean {
 }
 
 function shouldBypassSiteGate(pathname: string): boolean {
+  if (pathname === '/latest') {
+    return true;
+  }
   if (pathname === '/' || pathname === '/index.html') {
     return true;
   }
@@ -515,6 +519,28 @@ app.get('/config', (c) => {
   });
 });
 
+app.use('/latest', cors());
+app.get('/latest', async (c) => {
+  const email = c.req.query('email')?.trim().toLowerCase() ?? '';
+  const authCode = c.req.query('auth_code') ?? '';
+
+  if (!email || !authCode) {
+    return c.json({ message: 'email and auth_code are required' }, 400);
+  }
+
+  if (!authorizePickup(email, authCode, c.env.EMAIL_DOMAIN, c.env.COOKIES_SECRET)) {
+    return c.json({ message: 'Invalid email or auth_code' }, 401);
+  }
+
+  const db = getD1DB(c.env.DB);
+  const messages = await getEmailsByMessageTo(db, email, 1);
+  c.header('Cache-Control', 'no-store');
+  return c.json({
+    email,
+    message: messages[0] ?? null,
+  });
+});
+
 // 站点统计数据接口（公开）
 api.get('/stats', async (c) => {
   const cache = caches.default;
@@ -660,7 +686,7 @@ export default {
     }
 
     // API 路由
-    if (url.pathname.startsWith('/api/') || url.pathname === '/config' || url.pathname.startsWith('/auth/')) {
+    if (url.pathname.startsWith('/api/') || url.pathname === '/config' || url.pathname === '/latest' || url.pathname.startsWith('/auth/')) {
       return app.fetch(request, env, ctx);
     }
 
