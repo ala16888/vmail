@@ -13,7 +13,7 @@ import { decrypt } from './utils';
 // 导入 v1 API
 import v1Api from './api/v1';
 import { isOpenApiEnabled, requireOpenApi } from './openapi';
-import { authorizePickup } from './pickup';
+import { authorizePickup, getPickupMessageSummary, renderPickupPage } from './pickup';
 import {
   buildCloudflareMimeMessage,
   buildMailChannelsPayload,
@@ -534,11 +534,22 @@ app.get('/latest', async (c) => {
 
   const db = getD1DB(c.env.DB);
   const messages = await getEmailsByMessageTo(db, email, 1);
+  const message = messages[0] ?? null;
+  const format = c.req.query('format')?.toLowerCase();
   c.header('Cache-Control', 'no-store');
-  return c.json({
-    email,
-    message: messages[0] ?? null,
-  });
+
+  if (format === 'raw') {
+    return c.json({ email, message });
+  }
+
+  const summary = getPickupMessageSummary(message);
+  if (format === 'json') {
+    return c.json({ email, ...summary });
+  }
+
+  const jsonUrl = new URL(c.req.url);
+  jsonUrl.searchParams.set('format', 'json');
+  return c.html(renderPickupPage(email, message, jsonUrl.toString()));
 });
 
 // 站点统计数据接口（公开）
