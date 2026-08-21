@@ -110,7 +110,12 @@ mailboxesRouter.post('/', async (c) => {
   }
 
   // 获取可用域名
-  const availableDomains = c.env.EMAIL_DOMAIN ? c.env.EMAIL_DOMAIN.split(',').map(d => d.trim()) : [];
+  const availableDomains = c.env.EMAIL_DOMAIN
+    ? c.env.EMAIL_DOMAIN
+        .split(',')
+        .map(d => d.trim())
+        .filter(d => Boolean(d) && !d.startsWith('*.'))
+    : [];
   if (availableDomains.length === 0) {
     return c.json({
       error: {

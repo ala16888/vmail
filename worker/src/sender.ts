@@ -116,7 +116,25 @@ export function isAllowedMailboxAddress(
     .split(",")
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean)
-    .includes(domain);
+    .some((configuredDomain) => {
+      if (configuredDomain === domain) {
+        return true;
+      }
+
+      // A wildcard entry such as *.example.com enables one custom
+      // subdomain level while keeping the root domain explicit.
+      if (!configuredDomain.startsWith("*.")) {
+        return false;
+      }
+
+      const baseDomain = configuredDomain.slice(2);
+      if (!baseDomain || !domain.endsWith(`.${baseDomain}`)) {
+        return false;
+      }
+
+      const subdomain = domain.slice(0, -(baseDomain.length + 1));
+      return Boolean(subdomain) && !subdomain.includes(".");
+    });
 }
 
 export async function createMailboxToken(

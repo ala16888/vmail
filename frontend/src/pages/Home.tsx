@@ -69,6 +69,7 @@ export function Home() {
     config.emailDomain[0],
   ); // feat: 新增状态，用于存储当前选中的域名
   const [customLocalPart, setCustomLocalPart] = useState("");
+  const [customSubdomain, setCustomSubdomain] = useState("");
   const [showEmailModal, setShowEmailModal] = useState(false); // feat: 新增状态，用于控制邮件详情模态框的显示
   const [showPromoModal, setShowPromoModal] = useState(() => {
     // 如果未启用推广，不弹出
@@ -241,10 +242,22 @@ export function Home() {
   const handleOpenCustomAddress = () => {
     const normalizedInput = customLocalPart.trim().toLowerCase();
     let localPart = normalizedInput;
+    let mailboxDomain = selectedDomain;
+    const isWildcardDomain = selectedDomain.startsWith("*.");
+    const wildcardBase = isWildcardDomain ? selectedDomain.slice(2) : "";
+
+    if (isWildcardDomain) {
+      const subdomain = customSubdomain.trim().toLowerCase();
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain)) {
+        toast.error(t("Invalid custom email address"));
+        return;
+      }
+      mailboxDomain = `${subdomain}.${wildcardBase}`;
+    }
 
     if (normalizedInput.includes("@")) {
       const parts = normalizedInput.split("@");
-      if (parts.length !== 2 || parts[1] !== selectedDomain) {
+      if (parts.length !== 2 || parts[1] !== mailboxDomain) {
         toast.error(t("Invalid custom email address"));
         return;
       }
@@ -261,7 +274,7 @@ export function Home() {
       return;
     }
 
-    const mailbox = `${localPart}@${selectedDomain}`;
+    const mailbox = `${localPart}@${mailboxDomain}`;
     const expires = Date.now() + 24 * 60 * 60 * 1000;
 
     Cookies.set("userMailbox", mailbox, { expires: 1 });
@@ -635,6 +648,32 @@ export function Home() {
         ) : (
           <div className="w-full md:max-w-[350px]">
             {/* 邮箱域名后缀选择 */}
+            {selectedDomain.startsWith("*.") && (
+              <div className="mb-4">
+                <label
+                  htmlFor="custom-subdomain"
+                  className="mb-3 block font-semibold"
+                >
+                  {t("Subdomain")}
+                </label>
+                <div className="flex h-11 min-w-0 items-center overflow-hidden rounded-md border border-cyan-50/20 bg-white/10 focus-within:border-cyan-500">
+                  <input
+                    id="custom-subdomain"
+                    type="text"
+                    value={customSubdomain}
+                    onChange={(event) => setCustomSubdomain(event.target.value)}
+                    maxLength={63}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="例如 one"
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent px-3 text-white outline-none placeholder:text-zinc-500"
+                  />
+                  <span className="border-l border-cyan-50/20 px-3 text-sm text-zinc-300">
+                    .{selectedDomain.slice(2)}
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="mb-4">
               <div className="mb-3 font-semibold">{t("Domain")}</div>
               <select
@@ -684,7 +723,9 @@ export function Home() {
                   className="h-full min-w-0 flex-1 border-0 bg-transparent px-3 text-white outline-none placeholder:text-zinc-500"
                 />
                 <span className="max-w-[45%] shrink-0 truncate border-l border-cyan-50/20 px-3 text-sm text-zinc-300">
-                  @{selectedDomain}
+                  {selectedDomain.startsWith("*.")
+                    ? `@${customSubdomain || "subdomain"}.${selectedDomain.slice(2)}`
+                    : `@${selectedDomain}`}
                 </span>
               </div>
             </div>
@@ -703,7 +744,10 @@ export function Home() {
             </div>
             <button
               onClick={handleCreateAddress}
-              disabled={config.turnstileEnabled && !turnstileToken}
+              disabled={
+                selectedDomain.startsWith("*.") ||
+                (config.turnstileEnabled && !turnstileToken)
+              }
               className="w-full rounded-md border border-cyan-500/60 bg-transparent py-2.5 text-cyan-300 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:border-zinc-600 disabled:text-zinc-500"
             >
               {t("Create temporary email")}

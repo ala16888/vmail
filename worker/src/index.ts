@@ -181,7 +181,11 @@ const api = app.basePath('/api');
 api.post('/verify', turnstile, async (c) => {
   const body = c.get('parsedBody') as { domain?: string };
   const domain = body?.domain?.trim().toLowerCase();
-  if (!domain || !isAllowedMailboxAddress(`mailbox@${domain}`, c.env.EMAIL_DOMAIN)) {
+  if (
+    !domain ||
+    domain.startsWith("*.") ||
+    !isAllowedMailboxAddress(`mailbox@${domain}`, c.env.EMAIL_DOMAIN)
+  ) {
     return c.json({
       code: 'INVALID_MAILBOX',
       message: 'Mailbox domain is not configured',

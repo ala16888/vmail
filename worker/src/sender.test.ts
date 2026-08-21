@@ -112,6 +112,14 @@ test("mailbox addresses must use an explicitly configured domain", () => {
     isAllowedMailboxAddress("alice@sub.example.com", "example.com"),
     false,
   );
+  assert.equal(
+    isAllowedMailboxAddress("alice@sub.example.com", "example.com,*.example.com"),
+    true,
+  );
+  assert.equal(
+    isAllowedMailboxAddress("alice@deep.sub.example.com", "*.example.com"),
+    false,
+  );
   assert.equal(isAllowedMailboxAddress("not-an-email", "example.com"), false);
 });
 
